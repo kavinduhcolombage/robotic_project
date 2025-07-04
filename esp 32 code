@@ -1,0 +1,210 @@
+#include <WiFi.h>
+#include <WebServer.h>
+#include <ESP32Servo.h>
+
+// Wi-Fi credentials
+const char* ssid = "M10";
+const char* password = "12345678";
+
+// Servo pins
+const int L_VerticalPin = 13;
+const int L_HorizontalPin = 12;
+const int R_VerticalPin = 14;
+const int R_HorizontalPin = 27;
+
+// Servo objects
+Servo leftVertServo;
+Servo leftHorizServo;
+Servo rightVertServo;
+Servo rightHorizServo;
+
+// Servo angles
+int angle_LV = 90;
+int angle_LH = 90;
+int angle_RV = 90;
+int angle_RH = 90;
+
+WebServer server(80);
+
+// HTML page with sliders and buttons
+String htmlPage = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+  <title>4-Servo Robot Arm Control</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; background: #f2f2f2; padding-top: 20px; }
+    h2 { color: #333; }
+    input[type=range] { width: 300px; margin-bottom: 15px; }
+    button { padding: 10px 20px; margin: 10px; font-size: 16px; }
+  </style>
+</head>
+<body>
+  <h2>Left Arm - Vertical: <span id="lvVal">90</span>°</h2>
+  <input type="range" id="lvSlider" min="0" max="180" value="90" onchange="update('lv', this.value)"><br>
+
+  <h2>Left Arm - Horizontal: <span id="lhVal">90</span>°</h2>
+  <input type="range" id="lhSlider" min="0" max="180" value="90" onchange="update('lh', this.value)"><br>
+
+  <h2>Right Arm - Vertical: <span id="rvVal">90</span>°</h2>
+  <input type="range" id="rvSlider" min="0" max="180" value="90" onchange="update('rv', this.value)"><br>
+
+  <h2>Right Arm - Horizontal: <span id="rhVal">90</span>°</h2>
+  <input type="range" id="rhSlider" min="0" max="180" value="90" onchange="update('rh', this.value)"><br>
+
+  <hr>
+  <button onclick="preset('handsup')">Hands Up</button>
+  <button onclick="preset('handsdown')">Hands Down</button>
+  <button onclick="preset('handtogether')">Hands Together</button>
+  <button onclick="preset('handaway')">Hands away</button>
+
+<script>
+function update(servo, val) {
+  document.getElementById(servo + 'Val').innerText = val;
+  fetch(`/setServo?${servo}=${val}`);
+}
+
+function preset(action) {
+  fetch(`/preset?action=${action}`);
+}
+</script>
+</body>
+</html>
+)rawliteral";
+
+void setup() {
+  Serial.begin(115200);
+
+  // Start all servos at 90°
+  leftVertServo.attach(L_VerticalPin, 500, 2400);
+  leftVertServo.write(angle_LV);
+  delay(300);
+  leftVertServo.detach();
+
+  leftHorizServo.attach(L_HorizontalPin, 500, 2400);
+  leftHorizServo.write(angle_LH);
+  delay(300);
+  leftHorizServo.detach();
+
+  rightVertServo.attach(R_VerticalPin, 500, 2400);
+  rightVertServo.write(angle_RV);
+  delay(300);
+  rightVertServo.detach();
+
+  rightHorizServo.attach(R_HorizontalPin, 500, 2400);
+  rightHorizServo.write(angle_RH);
+  delay(300);
+  rightHorizServo.detach();
+
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to Wi-Fi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nConnected!");
+  Serial.print("ESP32 IP: ");
+  Serial.println(WiFi.localIP());
+
+  // Serve main page
+  server.on("/", HTTP_GET, []() {
+    server.send(200, "text/html", htmlPage);
+  });
+
+  // Individual servo update (sliders)
+  server.on("/setServo", HTTP_GET, []() {
+    if (server.hasArg("lv")) {
+      angle_LV = constrain(server.arg("lv").toInt(), 0, 180);
+      leftVertServo.attach(L_VerticalPin, 500, 2400);
+      leftVertServo.write(angle_LV);
+      delay(300);
+      leftVertServo.detach();
+      Serial.printf("Left Vertical: %d\n", angle_LV);
+    }
+    if (server.hasArg("lh")) {
+      angle_LH = constrain(server.arg("lh").toInt(), 0, 180);
+      leftHorizServo.attach(L_HorizontalPin, 500, 2400);
+      leftHorizServo.write(angle_LH);
+      delay(300);
+      leftHorizServo.detach();
+      Serial.printf("Left Horizontal: %d\n", angle_LH);
+    }
+    if (server.hasArg("rv")) {
+      angle_RV = constrain(server.arg("rv").toInt(), 0, 180);
+      rightVertServo.attach(R_VerticalPin, 500, 2400);
+      rightVertServo.write(angle_RV);
+      delay(300);
+      rightVertServo.detach();
+      Serial.printf("Right Vertical: %d\n", angle_RV);
+    }
+    if (server.hasArg("rh")) {
+      angle_RH = constrain(server.arg("rh").toInt(), 0, 180);
+      rightHorizServo.attach(R_HorizontalPin, 500, 2400);
+      rightHorizServo.write(angle_RH);
+      delay(300);
+      rightHorizServo.detach();
+      Serial.printf("Right Horizontal: %d\n", angle_RH);
+    }
+    server.send(200, "text/plain", "OK");
+  });
+
+  // Preset action (buttons)
+  server.on("/preset", HTTP_GET, [](){
+    if (!server.hasArg("action")) {
+      server.send(400); return;
+    }
+    String action = server.arg("action");
+
+    if (action == "handsup") {
+      angle_RV = 70;  angle_RH = 90;
+      angle_LV = 70;  angle_LH = 90;
+    } 
+    else if (action == "handsdown") {
+      angle_RV = 150;  angle_RH = 90;
+      angle_LV = 150;  angle_LH = 90;
+    }
+    else if (action == "handtogether") {
+      angle_RH = 60;
+      angle_LH = 110;
+    }
+    else if (action == "handaway") {
+      angle_RH = 120;
+      angle_LH = 60;
+    }
+    else {
+      server.send(400, "text/plain", "Unknown preset");
+      return;
+    }
+
+    // 1) Attach all
+    leftVertServo.attach(L_VerticalPin, 500, 2400);
+    leftHorizServo.attach(L_HorizontalPin, 500, 2400);
+    rightVertServo.attach(R_VerticalPin, 500, 2400);
+    rightHorizServo.attach(R_HorizontalPin, 500, 2400);
+
+    // 2) Write all angles immediately
+    leftVertServo.write(angle_LV);
+    leftHorizServo.write(angle_LH);
+    rightVertServo.write(angle_RV);
+    rightHorizServo.write(angle_RH);
+
+    // 3) Single delay to allow movement
+    delay(500);
+
+    // 4) Detach all
+    leftVertServo.detach();
+    leftHorizServo.detach();
+    rightVertServo.detach();
+    rightHorizServo.detach();
+
+    Serial.println("Preset: " + action);
+    server.send(200, "text/plain", "Done");
+  });
+
+  server.begin();
+}
+
+void loop() {
+  server.handleClient();
+}
