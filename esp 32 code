@@ -3,8 +3,8 @@
 #include <ESP32Servo.h>
 
 // Wi-Fi credentials
-const char* ssid = "M10";
-const char* password = "12345678";
+const char* ssid = "4GMIFI_8983";
+const char* password = "123456789dk";
 
 // Servo pins
 const int L_VerticalPin = 13;
@@ -57,6 +57,8 @@ String htmlPage = R"rawliteral(
   <button onclick="preset('handsdown')">Hands Down</button>
   <button onclick="preset('handtogether')">Hands Together</button>
   <button onclick="preset('handaway')">Hands away</button>
+  <button onclick="preset('relax')">Relax</button>
+  <button onclick="preset('point')">Point</button>
 
 <script>
 function update(servo, val) {
@@ -161,16 +163,24 @@ void setup() {
       angle_LV = 70;  angle_LH = 90;
     } 
     else if (action == "handsdown") {
-      angle_RV = 150;  angle_RH = 90;
-      angle_LV = 150;  angle_LH = 90;
+      angle_RV = 169;  angle_RH = 82;
+      angle_LV = 146;  angle_LH = 106;
     }
     else if (action == "handtogether") {
-      angle_RH = 60;
-      angle_LH = 110;
+      angle_RV = 87;  angle_RH = 45;
+      angle_LV = 48;  angle_LH = 146;
     }
     else if (action == "handaway") {
-      angle_RH = 120;
-      angle_LH = 60;
+      angle_RV = 72; angle_RH = 126;
+      angle_LV = 48; angle_LH = 74;
+    }
+    else if (action == "relax") {
+      angle_RH = 50;  angle_RV = 126;
+      angle_LH = 132; angle_LV = 57;
+    }
+    else if (action == "point") {
+      angle_RV = 64;  angle_RH = 105;
+      angle_LV = 57;  angle_LH = 132;
     }
     else {
       server.send(400, "text/plain", "Unknown preset");
